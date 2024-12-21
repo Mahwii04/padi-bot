@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatGPT-Like Widget</title>
+    <style>
+        /* General Body Styling */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #000000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* Chat Widget Container */
+        #chat-widget {
+            width: 90%;
+            max-width: 600px;
+            height: 80%;
+            background: #4f0000;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+
+        /* Chat Header */
+        #chat-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #6f0000;
+            color: #e6e6e6;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-bottom: 1px solid #55565c;
+        }
+
+        #chat-header img {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+        }
+
+        /* Chat Messages Area */
+        #chat-messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #2e2c2c;
+        }
+
+        .message {
+            margin: 10px 0;
+            padding: 10px 15px;
+            border-radius: 10px;
+            max-width: 75%;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .user-message {
+            background: #000000;
+            color: white;
+            margin-left: auto;
+            text-align: left;
+        }
+
+        .bot-message {
+            background: #620000;
+            color: #d1d5db;
+            margin-right: auto;
+            text-align: left;
+            border: 1px solid #55565c;
+        }
+
+        /* Chat Input Area */
+        #chat-input-area {
+            display: flex;
+            background: #000000;
+            padding: 10px;
+            border-top: 1px solid #000000;
+        }
+
+        #chat-input {
+            flex-grow: 1;
+            background: #620000;
+            color: #e6e6e6;
+            border: 1px solid #000000;
+            border-radius: 5px;
+            padding: 10px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        #chat-input::placeholder {
+            color: #ffffff;
+        }
+
+        #send-button {
+            background: #600000;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 14px;
+            margin-left: 10px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        #send-button:hover {
+            background: #055160;
+        }
+
+        /* Scrollbar Styling */
+        #chat-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #chat-messages::-webkit-scrollbar-thumb {
+            background: #55565c;
+            border-radius: 10px;
+        }
+
+        #chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-widget">
+        <div id="chat-header">
+            <img src="https://padii.com.ng/content/uploads/photos/2024/11/sngine_dbf224266a3c6108f8f909fd89d2a8f5.png" alt="Chat Icon" />
+            Ask Padii
+        </div>
+        <div id="chat-messages"></div>
+        <div id="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Type your message..." />
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const chatMessages = document.getElementById("chat-messages");
+        const chatInput = document.getElementById("chat-input");
+        const sendButton = document.getElementById("send-button");
+        
+        // API Configuration
+        const API_URL = "/api/chat";
+        
+        // Message history to maintain context
+        let messageHistory = [];
+        
+        // Function to create message elements
+        function createMessageElement(content, isUser, contextInfo = null) {
+            const messageElement = document.createElement("div");
+            messageElement.classList.add("message", isUser ? "user-message" : "bot-message");
+            
+            if (contextInfo) {
+                const contextElement = document.createElement("div");
+                contextElement.classList.add("context-info");
+                contextElement.style.fontSize = "12px";
+                contextElement.style.fontStyle = "italic";
+                contextElement.style.marginBottom = "5px";
+                contextElement.style.color = "#888";
+                contextElement.textContent = contextInfo;
+                messageElement.appendChild(contextElement);
+            }
+            
+            const textElement = document.createElement("div");
+            textElement.textContent = content;
+            messageElement.appendChild(textElement);
+            
+            return messageElement;
+        }
+        
+        // Function to scroll chat to bottom
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Main function to send message and get response
+        async function sendMessage() {
+            const userMessage = chatInput.value.trim();
+            if (!userMessage) return;
+        
+            chatMessages.appendChild(createMessageElement(userMessage, true));
+            chatInput.value = "";
+        
+            const loadingElement = createMessageElement("Typing...", false);
+            chatMessages.appendChild(loadingElement);
+            scrollToBottom();
+        
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        messages: [{
+                            role: "user",
+                            content: userMessage
+                        }]
+                    })
+                });
+        
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+        
+                const data = await response.json();
+                const botMessage = data.content[0].text;
+        
+                chatMessages.removeChild(loadingElement);
+                chatMessages.appendChild(createMessageElement(
+                    botMessage, 
+                    false, 
+                    data.contextInfo?.data
+                ));
+                scrollToBottom();
+        
+                saveChatToHistory(userMessage, botMessage, data.contextInfo?.data);
+        
+            } catch (error) {
+                console.error("Error:", error);
+                chatMessages.removeChild(loadingElement);
+                chatMessages.appendChild(createMessageElement("Sorry, I encountered an error. Please try again.", false));
+            }
+        }
+        
+        // Function to save chat to history
+        function saveChatToHistory(userMessage, botMessage, contextInfo) {
+            const timestamp = new Date().toLocaleString();
+            const historyItem = {
+                timestamp: timestamp,
+                userMessage: userMessage,
+                botMessage: botMessage,
+                contextInfo: contextInfo
+            };
+        
+            let chatHistory = JSON.parse(localStorage.getItem('chatHistory') || '[]');
+            chatHistory.unshift(historyItem);
+            chatHistory = chatHistory.slice(0, 20);
+            localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+            updateHistoryDisplay();
+        }
+        
+        // Function to update history display
+        function updateHistoryDisplay() {
+            const historyList = document.getElementById('history-list');
+            const chatHistory = JSON.parse(localStorage.getItem('chatHistory') || '[]');
+            
+            historyList.innerHTML = '';
+            
+            chatHistory.forEach((item, index) => {
+                const historyElement = document.createElement('div');
+                historyElement.classList.add('history-item');
+                historyElement.innerHTML = `
+                    <div class="timestamp">${item.timestamp}</div>
+                    <div class="preview">${item.userMessage}</div>
+                `;
+                
+                historyElement.addEventListener('click', () => loadConversation(item));
+                historyList.appendChild(historyElement);
+            });
+        }
+        
+        // Function to load a conversation
+        function loadConversation(item) {
+            chatMessages.innerHTML = '';
+            chatMessages.appendChild(createMessageElement(item.userMessage, true));
+            chatMessages.appendChild(createMessageElement(item.botMessage, false));
+            scrollToBottom();
+        }
+        
+        // Event Listeners
+        sendButton.addEventListener("click", sendMessage);
+        chatInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                sendMessage();
+            }
+        });
+        
+        // Initialize history display
+        document.addEventListener('DOMContentLoaded', () => {
+            updateHistoryDisplay();
+        });
+    </script>
+</body>
+</html>
